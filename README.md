@@ -5,7 +5,7 @@ This repository implements code from research on multiply robust difference-in-d
 
 An example simulated dataset is provided in `example_simulated_data.RData`. 
 
-An example script calling a simulation and running an analysis for the Average Dose Effect on the Treated (ADT) is provided in `example_run.R`. An example figure is also produced in the script. To calculate pointwise confidence intervals, the `nboots` parameter must be increased to greater than zero. 
+An example script calling a simulation and running an analysis for the Average Dose Effect on the Treated (ADT) is provided in `example_run.R`. An example figure is also produced in the script. To calculate pointwise confidence intervals, the `run_ci_sim()` function can be uncommented with `nboots` parameter (bootstrap) set to greater than zero and/or the `get_vars` flag set to TRUE (sandwich). 
 
 ## Functions
 
