@@ -1,3 +1,4 @@
+# Function to fit binary propensity score model and get relevant information
 get_ps0_info = function(data, ps_good, trt_col="A", good_covs=paste0("X", 1:4), bad_covs=paste0("W", 1:4),
                         is_boot=F, wt_col="boot_wts") {
   data$boot_wts = if (!is_boot) rep(1, nrow(data)) else data[[wt_col]]
@@ -7,6 +8,7 @@ get_ps0_info = function(data, ps_good, trt_col="A", good_covs=paste0("X", 1:4), 
   return(list(ps0_form=ps0_form, ps0_model=ps0_model, ps=piA_mean))
 }
 
+# Function to calculate binary propensity score weights
 get_ps0_wts = function(data, ps, trt_col="A", normalize=T, trim=F) {
   wts = ifelse(data[[trt_col]] == 1, 1, ps/(1-ps))
   if (trim) wts = WeightIt::trim(x=wts, at=0.95, lower=T, treat=data[[trt_col]])
@@ -14,6 +16,7 @@ get_ps0_wts = function(data, ps, trt_col="A", normalize=T, trim=F) {
   return(wts)
 }
 
+# Function to fit outcome model under control exposure and get relevant information
 get_or0_info = function(data, or_good, outcome_col="deltaY", trt_col="A",
                         good_covs=paste0("X", 1:4), bad_covs=paste0("W", 1:4),
                         is_boot=F, wt_col="boot_wts") {
@@ -24,6 +27,7 @@ get_or0_info = function(data, or_good, outcome_col="deltaY", trt_col="A",
   return(list(or0_form=or0_form, or0_model=or0_model, predMu0=mu0))
 }
 
+# Function to get TWFE estimate for Theta_0
 get_theta0_est_twfe = function(data, or_good, good_covs=paste0("X", 1:4), 
                                bad_covs=paste0("W", 1:4), outcome_col0="Y0", outcome_col1="Y1", 
                                trt_col="A", dose_col="D", is_boot=F, wt_col="boot_wts") {
@@ -39,28 +43,33 @@ get_theta0_est_twfe = function(data, or_good, good_covs=paste0("X", 1:4),
   return(est)
 }
 
+# Function to get Confounder-Naive estimate for Theta_0
 get_theta0_est_naive = function(data, outcome_col="deltaY", trt_col="A", is_boot=F, wt_col="boot_wts") {
   data$boot_wts = if (!is_boot) rep(1, nrow(data)) else data[[wt_col]]
   ctl_data = data[data[[trt_col]]==0,]
   return(stats::weighted.mean(x=ctl_data[[outcome_col]], w=ctl_data$boot_wts))
 }
 
+# Function to get Outcome Regression estimate for Theta_0
 get_theta0_est_or = function(data, predMu0, outcome_col="deltaY", trt_col="A", is_boot=F, wt_col="boot_wts") {
   data$boot_wts = if (!is_boot) rep(1, nrow(data)) else data[[wt_col]]
   return(stats::weighted.mean(x=predMu0[data[[trt_col]]==1], w=data$boot_wts[data[[trt_col]]==1]))
 }
 
+# Function to get IPW estimate for Theta_0
 get_theta0_est_ipw = function(data, wts, outcome_col="deltaY", trt_col="A", is_boot=F, wt_col="boot_wts") {
   data$boot_wts = if (!is_boot) rep(1, nrow(data)) else data[[wt_col]]
   return(stats::weighted.mean(x=wts[data[[trt_col]]==0]*data[[outcome_col]][data[[trt_col]]==0], w=data$boot_wts[data[[trt_col]]==0]))
 }
 
+# Function to get Doubly Robust estimate for Theta_0
 get_theta0_est_dr = function(data, wts, predMu0, outcome_col="deltaY", trt_col="A", is_boot=F, wt_col="boot_wts") {
   data$boot_wts = if (!is_boot) rep(1, nrow(data)) else data[[wt_col]]
   return(stats::weighted.mean(x=ifelse(data[[trt_col]]==1, wts*predMu0, wts*(data[[outcome_col]] - predMu0)), w=data$boot_wts)/
            stats::weighted.mean(x=data[[trt_col]]==1, w=data$boot_wts))
 }
 
+# Function to call relevant estimation functions
 get_theta0_ests = function(data, or_good, ps_good, is_boot=F, wt_col="boot_wts", wt_norm=T) {
   ps0_info = get_ps0_info(data=data, ps_good=ps_good, is_boot=is_boot, wt_col=wt_col)
   or0_info = get_or0_info(data=data, or_good=or_good, is_boot=is_boot, wt_col=wt_col)

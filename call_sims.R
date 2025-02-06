@@ -4,8 +4,9 @@ source("kernel_functions.R")
 source("dose_component_functions.R")
 source("ctl_component_functions.R")
 source("bootstrap_functions.R")
-source("variance_functions.R")
+source("sandwich_variance_functions.R")
 
+# Helper function to flatten results in list form
 flatten_list_res = function(ests_list) {
   ests_df = NULL
   for (mdl in names(ests_list)) {
@@ -16,6 +17,7 @@ flatten_list_res = function(ests_list) {
   return(ests_df)
 }
 
+# Function to get point estimate and sandwich variance information
 get_est_info = function(data, D.vals, testD, trt_col, or_good_dose, ps_good_dose, or_good_ctl, ps_good_ctl, 
                         is_boot=F, wt_col="boot_wts", wt_normD=T, wt_norm0=T) {
   est_dose_info = get_thetaD_ests(data=data[data[[trt_col]]==1,], D.vals=D.vals, 
@@ -33,15 +35,17 @@ get_est_info = function(data, D.vals, testD, trt_col, or_good_dose, ps_good_dose
               sand_var_info=sand_var_info))
 }
 
+# Helper function to add simulation data to a data.frame
 add_info = function(seed, res, info, ogd, pgd, ogc, pgc) {
-  dfs = list(psiD=cbind(Seed=seed, OGD=ogd, PGD=pgd, OGC=ogc, PGC=pgc, data.frame(info$psiD)), 
-             thetaD=cbind(Seed=seed, OGD=ogd, PGD=pgd, OGC=ogc, PGC=pgc, data.frame(info$thetaD)), 
-             theta0=cbind(Seed=seed, OGD=ogd, PGD=pgd, OGC=ogc, PGC=pgc, data.frame(info$theta0)))
+  dfs = list(psiD=cbind(Seed=seed, muD=ogd, piD=pgd, mu0=ogc, piA=pgc, data.frame(info$psiD)), 
+             thetaD=cbind(Seed=seed, muD=ogd, piD=pgd, mu0=ogc, piA=pgc, data.frame(info$thetaD)), 
+             theta0=cbind(Seed=seed, muD=ogd, piD=pgd, mu0=ogc, piA=pgc, data.frame(info$theta0)))
   if (is.null(res)) res = dfs
   else for (lbl in names(dfs)) res[[lbl]] = rbind(res[[lbl]], dfs[[lbl]])
   return(res)
 }
 
+# Call simulation results for point simulations only
 collect_point_sims = function(start_sim, end_sim, n, testD, wt_normD=T, wt_norm0=T) {
   res = list()
   for (seed in start_sim:end_sim) {
@@ -63,14 +67,14 @@ collect_point_sims = function(start_sim, end_sim, n, testD, wt_normD=T, wt_norm0
   return(res)
 }
 
+# Call simulations for both point and variance simulations
 run_ci_sims = function(start_sim, end_sim, n, testD, nboots, get_vars=T, wt_normD=T, wt_norm0=T) {
-  point_res = sand_var_res1 = sand_var_res2 = sand_var_res3 = sand_var_res4 = sand_var_res5 = sand_var_res6 = boot_res = NULL
+  point_res = sand_var_res = boot_res = NULL
   for (seed in start_sim:end_sim) {
     if (seed %% 1 == 0) print(seed)
     sim_info = gen_sim(seed=seed, n=n)
     for (og in c(T,F)) {
       for (pg in c(T,F)) {
-        print("new run")
         est_info = get_est_info(data=sim_info$data, D.vals=sim_info$D.vals, testD=testD, trt_col="A", 
                                 or_good_dose=og, ps_good_dose=pg, 
                                 or_good_ctl=og, ps_good_ctl=pg, wt_normD=wt_normD, wt_norm0=wt_norm0)
@@ -78,12 +82,8 @@ run_ci_sims = function(start_sim, end_sim, n, testD, nboots, get_vars=T, wt_norm
         
         if (get_vars) {
           sand_var_res_info = get_sand_vars(est_info$sand_var_info)
-          sand_var_res1 = add_info(seed=seed, res=sand_var_res1, info=sand_var_res_info$v1, ogd=og, pgd=pg, ogc=og, pgc=pg)
-          sand_var_res2 = add_info(seed=seed, res=sand_var_res2, info=sand_var_res_info$v2, ogd=og, pgd=pg, ogc=og, pgc=pg)
-          sand_var_res3 = add_info(seed=seed, res=sand_var_res3, info=sand_var_res_info$v3, ogd=og, pgd=pg, ogc=og, pgc=pg)
-          sand_var_res4 = add_info(seed=seed, res=sand_var_res4, info=sand_var_res_info$v4, ogd=og, pgd=pg, ogc=og, pgc=pg)
-          sand_var_res5 = add_info(seed=seed, res=sand_var_res5, info=sand_var_res_info$v5, ogd=og, pgd=pg, ogc=og, pgc=pg)
-          sand_var_res6 = add_info(seed=seed, res=sand_var_res6, info=sand_var_res_info$v6, ogd=og, pgd=pg, ogc=og, pgc=pg)
+          sand_var_res = add_info(seed=seed, res=sand_var_res, info=sand_var_res_info$var, 
+                                  ogd=og, pgd=pg, ogc=og, pgc=pg)
         }
         
         if (nboots > 0) {
@@ -95,8 +95,6 @@ run_ci_sims = function(start_sim, end_sim, n, testD, nboots, get_vars=T, wt_norm
       }
     }
   }
-  return(list(point=point_res, sand_var1=sand_var_res1, sand_var2=sand_var_res2, 
-              sand_var3=sand_var_res3, sand_var4=sand_var_res4, 
-              sand_var5=sand_var_res5, sand_var6=sand_var_res6, boot=boot_res))
+  return(list(point=point_res, sand_var=sand_var_res, boot=boot_res))
 }
 

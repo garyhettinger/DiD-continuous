@@ -1,5 +1,7 @@
+# Helper function to approximate via splines
 approx_fxn = function(x,y,newx) { predict(smooth.spline(x,y),x=newx)$y}
 
+# Function to fit generalized propensity score model and collect relevant information
 get_psD_info = function(data, ps_good, D.vals, dose_col="D", good_covs=paste0("X", 1:4), 
                         bad_covs = paste0("W", 1:4), is_boot=F, wt_col="boot_wts") {
   data$boot_wts = if (!is_boot) rep(1, nrow(data)) else data[[wt_col]]
@@ -16,6 +18,7 @@ get_psD_info = function(data, ps_good, D.vals, dose_col="D", good_covs=paste0("X
               gps_mat=gps_mat2))
 }
 
+# Function to calculate generalized propensity score weights
 get_psD_wts = function(gps, gps_num, doses=NULL, normalize=T, trim=F) {
   wts = gps_num / gps
   if (trim) wts = WeightIt::trim(x=wts, at=0.95, lower=F, treat=doses)
@@ -23,6 +26,7 @@ get_psD_wts = function(gps, gps_num, doses=NULL, normalize=T, trim=F) {
   return(wts)
 }
 
+# Function to fit outcome model under specific dose and collect relevant information
 get_orD_info = function(data, or_good, D.vals, dose_col="D", outcome_col="deltaY", 
                         good_cov_form="X1 + X2 + X3 + X4 + D + D:X1 + D:X3 + D3", 
                         bad_cov_form="W1 + W2 + W3 + W4 + D + D:W1 + D:W3",
@@ -43,12 +47,14 @@ get_orD_info = function(data, or_good, D.vals, dose_col="D", outcome_col="deltaY
   return(list(orD_form=orD_form, orD_model=orD_model, predMuD=muD, predMD=mD, muhat_mat=muD_mat, mhat_mat=mD_mat))
 }
 
+# Helper function to calculate pseudo outcomes upon which continuous dose will be non-parametrically regressed
 get_pseudo_out_info = function(data, wts, predMuD, predMD, outcome_col="deltaY") {
   pseudo.dr = wts*(data[[outcome_col]] - predMuD) + predMD
   pseudo.ipw = wts*data[[outcome_col]]
   return(list(pseudo_dr=pseudo.dr, pseudo_ipw=pseudo.ipw))
 }
 
+# Function to get TWFE estimate for Theta_D
 get_thetaD_est_twfe = function(data, D.vals, or_good, good_covs=paste0("X", 1:4), 
                                bad_covs=paste0("W", 1:4), outcome_col0="Y0", outcome_col1="Y1", 
                                trt_col="A", dose_col="D", is_boot=F, wt_col="boot_wts") {
@@ -64,18 +70,21 @@ get_thetaD_est_twfe = function(data, D.vals, or_good, good_covs=paste0("X", 1:4)
   return(est)
 }
 
+# Function to get Confounder-Naive estimate for Theta_D
 get_thetaD_est_naive = function(data, D.vals, outcome_col="deltaY", dose_col="D", is_boot=F, wt_col="boot_wts") {
   kern_wts = if (!is_boot) rep(1, nrow(data)) else data[[wt_col]]
   return(wt_kernel_est(data=data, dose_vals=D.vals, outcome_col=outcome_col, 
                        dose_col=dose_col, kern_wts=kern_wts)$est)
 }
 
+# Function to get Outcome Regression estimate for Theta_D
 get_thetaD_est_or = function(data, D.vals, orD_model, dose_col="D", is_boot=F, wt_col="boot_wts") {
   data$boot_wts = if (!is_boot) rep(1, nrow(data)) else data[[wt_col]]
   return(sapply(D.vals, function(d) stats::weighted.mean(x=predict(orD_model, newdata=data.frame(data %>% mutate(!!dose_col := d, D3=d^3)), 
                                                                    type="response"), w=data$boot_wts)))
 }
 
+# Function to get IPW estimate for Theta_D
 get_thetaD_est_ipw = function(data, D.vals, pseudo, dose_col="D", is_boot=F, wt_col="boot_wts") {
   kern_wts = if (!is_boot) rep(1, nrow(data)) else data[[wt_col]]
   data$pseudo_ipw = pseudo
@@ -83,6 +92,7 @@ get_thetaD_est_ipw = function(data, D.vals, pseudo, dose_col="D", is_boot=F, wt_
                        dose_col=dose_col, kern_wts=kern_wts)$est)
 }
 
+# Function to get Doubly Robust estimate for Theta_D
 get_thetaD_est_dr_info = function(data, D.vals, pseudo, dose_col="D", is_boot=F, wt_col="boot_wts") {
   kern_wts = if (!is_boot) rep(1, nrow(data)) else data[[wt_col]]
   data$pseudo_out = pseudo
@@ -90,6 +100,7 @@ get_thetaD_est_dr_info = function(data, D.vals, pseudo, dose_col="D", is_boot=F,
                        dose_col=dose_col, kern_wts=kern_wts))
 }
 
+# Function to get DR estimate for Theta_D using parametric regression
 get_thetaD_est_parametric = function(data, D.vals, pseudo, form, dose_col="D", is_boot=F, wt_col="boot_wts") {
   data$boot_wts = if (!is_boot) rep(1, nrow(data)) else data[[wt_col]]
   data$pseudo_dr = pseudo
@@ -101,6 +112,7 @@ get_thetaD_est_parametric = function(data, D.vals, pseudo, form, dose_col="D", i
   return(est)
 }
 
+# Function to call relevant estimation functions
 get_thetaD_ests = function(data, D.vals, or_good, ps_good, is_boot=F, wt_col="boot_wts", wt_norm=T) {
   psD_info = get_psD_info(data=data, ps_good=ps_good, D.vals=D.vals, is_boot=is_boot, wt_col=wt_col)
   orD_info = get_orD_info(data=data, or_good=or_good, D.vals=D.vals, is_boot=is_boot, wt_col=wt_col)
