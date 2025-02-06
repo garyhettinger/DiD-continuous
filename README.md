@@ -1,5 +1,5 @@
 # DiD-continuous
-This repository implements code from research on multiply robust difference-in-differences methodology for continuous exposures (https://arxiv.org/abs/2401.14355).
+This repository implements code from research on multiply robust difference-in-differences methodology for continuous exposures (https://doi.org/10.1093/biomtc/ujaf015).
 
 ## Example
 
